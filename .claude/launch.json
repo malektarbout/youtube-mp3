@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "YouTube MP3 - Flask Server",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["app.py"],
+      "port": 5001
+    }
+  ]
+}

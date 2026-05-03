@@ -38,7 +38,21 @@ def get_node_path():
     found = shutil.which("node") or shutil.which("nodejs")
     return found or "node"
 
-def download_job(job_id, url):
+def time_to_seconds(t):
+    """Convertit MM:SS ou HH:MM:SS en secondes."""
+    if not t:
+        return None
+    parts = t.strip().split(":")
+    try:
+        if len(parts) == 2:
+            return int(parts[0]) * 60 + int(parts[1])
+        elif len(parts) == 3:
+            return int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
+    except Exception:
+        return None
+    return None
+
+def download_job(job_id, url, start_time=None, end_time=None):
     jobs[job_id]["status"] = "downloading"
     output_path = DOWNLOAD_FOLDER / f"{job_id}.%(ext)s"
     ffmpeg_path = get_ffmpeg_path()
@@ -55,8 +69,18 @@ def download_job(job_id, url):
         "--output", str(output_path),
         "--no-playlist",
         "--print", "after_move:filepath",
-        url
     ]
+
+    # Ajout du trim si start/end fournis
+    start_sec = time_to_seconds(start_time)
+    end_sec   = time_to_seconds(end_time)
+    if start_sec is not None or end_sec is not None:
+        s = start_sec if start_sec is not None else 0
+        e = end_sec   if end_sec   is not None else 99999
+        cmd += ["--download-sections", f"*{s}-{e}", "--force-keyframes-at-cuts"]
+
+    cmd.append(url)
+
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
         if result.returncode != 0:
@@ -64,14 +88,12 @@ def download_job(job_id, url):
             jobs[job_id]["error"] = result.stderr[-500:] if result.stderr else "Erreur inconnue"
             return
 
-        # Trouver le fichier mp3 créé
         mp3_files = list(DOWNLOAD_FOLDER.glob(f"{job_id}.mp3"))
         if not mp3_files:
-            # Essayer de trouver n'importe quel fichier avec cet id
             files = list(DOWNLOAD_FOLDER.glob(f"{job_id}.*"))
             if not files:
                 jobs[job_id]["status"] = "error"
-                jobs[job_id]["error"] = "Fichier MP3 introuvable après conversion"
+                jobs[job_id]["error"] = "Fichier MP3 introuvable apres conversion"
                 return
             mp3_files = files
 
@@ -81,7 +103,7 @@ def download_job(job_id, url):
 
     except subprocess.TimeoutExpired:
         jobs[job_id]["status"] = "error"
-        jobs[job_id]["error"] = "Timeout — vidéo trop longue ou connexion lente"
+        jobs[job_id]["error"] = "Timeout — video trop longue ou connexion lente"
     except Exception as e:
         jobs[job_id]["status"] = "error"
         jobs[job_id]["error"] = str(e)
@@ -94,7 +116,10 @@ HTML = """<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="YT MP3"/>
 <meta name="theme-color" content="#0f0c29"/>
+<link rel="manifest" href="/manifest.json"/>
+<link rel="apple-touch-icon" href="/icon-192.png"/>
 <title>YouTube → MP3</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -279,6 +304,74 @@ HTML = """<!DOCTYPE html>
     text-align: left;
   }
 
+  /* Trim section */
+  .trim-toggle {
+    width: 100%;
+    padding: 11px 16px;
+    background: rgba(255,255,255,0.05);
+    border: 1px dashed rgba(255,255,255,0.18);
+    border-radius: 12px;
+    color: rgba(255,255,255,0.55);
+    font-size: 0.88rem;
+    cursor: pointer;
+    margin-bottom: 16px;
+    text-align: left;
+    -webkit-appearance: none;
+    touch-action: manipulation;
+  }
+  .trim-toggle:active { background: rgba(255,255,255,0.1); }
+  .trim-box {
+    display: none;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .trim-box label {
+    color: rgba(255,255,255,0.6);
+    font-size: 0.8rem;
+    display: block;
+    margin-bottom: 5px;
+  }
+  .trim-row { display: flex; gap: 12px; }
+  .trim-row > div { flex: 1; }
+  .trim-box input[type=text] {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    font-size: 16px;
+    outline: none;
+  }
+  .trim-box input[type=text]:focus { border-color: #ff4e6a; }
+  .trim-hint {
+    color: rgba(255,255,255,0.3);
+    font-size: 0.75rem;
+    margin-top: 10px;
+    text-align: center;
+  }
+
+  /* Bouton installer PWA */
+  .btn-install {
+    display: none;
+    width: 100%;
+    padding: 13px;
+    background: linear-gradient(135deg, #6c63ff, #a855f7);
+    border: none;
+    border-radius: 12px;
+    color: #fff;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-bottom: 14px;
+    touch-action: manipulation;
+    -webkit-appearance: none;
+  }
+  .btn-install:active { opacity: 0.85; }
+
   /* Error */
   .error-box {
     display: none;
@@ -313,6 +406,25 @@ HTML = """<!DOCTYPE html>
 
   <button class="btn-paste" onclick="pasteFromClipboard()">📋 Coller le lien depuis le presse-papier</button>
 
+  <!-- Trim -->
+  <button class="trim-toggle" id="trimToggle" onclick="toggleTrim()">✂️ Couper une partie (optionnel)</button>
+  <div class="trim-box" id="trimBox">
+    <div class="trim-row">
+      <div>
+        <label>Debut (MM:SS)</label>
+        <input type="text" id="startTime" placeholder="0:00" maxlength="8"/>
+      </div>
+      <div>
+        <label>Fin (MM:SS)</label>
+        <input type="text" id="endTime" placeholder="3:30" maxlength="8"/>
+      </div>
+    </div>
+    <p class="trim-hint">Exemple : debut 1:30 → fin 4:00 pour extraire 2m30s</p>
+  </div>
+
+  <!-- Bouton installer PWA -->
+  <button class="btn-install" id="installBtn" onclick="installPWA()">📲 Installer l'app sur cet appareil</button>
+
   <div class="progress-box" id="progressBox">
     <div class="progress-label">
       <span id="statusText">Téléchargement en cours...</span>
@@ -341,11 +453,53 @@ HTML = """<!DOCTYPE html>
 
 <script>
 let pollInterval = null;
+let deferredInstallPrompt = null;
 
-// Détecter iPhone/iOS
+// PWA : enregistrement du service worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+
+// PWA : capturer l'evenement d'installation
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  document.getElementById('installBtn').style.display = 'block';
+});
+window.addEventListener('appinstalled', () => {
+  document.getElementById('installBtn').style.display = 'none';
+});
+
+function installPWA() {
+  if (deferredInstallPrompt) {
+    deferredInstallPrompt.prompt();
+    deferredInstallPrompt.userChoice.then(() => {
+      deferredInstallPrompt = null;
+      document.getElementById('installBtn').style.display = 'none';
+    });
+  }
+}
+
+// Detecter iPhone/iOS
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 if (isIOS) {
   document.getElementById('iphoneNote') && (document.getElementById('iphoneNote').style.display = 'block');
+  // Sur iOS, afficher un message d'installation specifique (pas de beforeinstallprompt)
+  const installed = window.navigator.standalone;
+  if (!installed) {
+    const btn = document.getElementById('installBtn');
+    btn.style.display = 'block';
+    btn.textContent = '📲 Installer : appuie sur      puis "Sur l\'ecran d\'accueil"';
+    btn.onclick = null;
+  }
+}
+
+function toggleTrim() {
+  const box = document.getElementById('trimBox');
+  const btn = document.getElementById('trimToggle');
+  const open = box.style.display === 'block';
+  box.style.display = open ? 'none' : 'block';
+  btn.textContent = open ? '✂️ Couper une partie (optionnel)' : '✂️ Masquer les options de coupe';
 }
 
 async function pasteFromClipboard() {
@@ -358,28 +512,30 @@ async function pasteFromClipboard() {
       }
     }
   } catch(e) {
-    // Fallback : focus sur l'input
     document.getElementById('urlInput').focus();
     document.getElementById('urlInput').select();
   }
 }
 
 function startConvert() {
-  const url = document.getElementById('urlInput').value.trim();
+  const url   = document.getElementById('urlInput').value.trim();
+  const start = document.getElementById('startTime').value.trim();
+  const end   = document.getElementById('endTime').value.trim();
+
   if (!url) { showError("Colle un lien YouTube d'abord !"); return; }
   if (!url.includes('youtube.com') && !url.includes('youtu.be')) {
-    showError("Ce lien ne semble pas être un lien YouTube valide.");
+    showError("Ce lien ne semble pas etre un lien YouTube valide.");
     return;
   }
 
   hideAll();
   setLoading(true);
-  showProgress();
+  showProgress(start, end);
 
   fetch('/api/convert', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({url})
+    body: JSON.stringify({url, start, end})
   })
   .then(r => r.json())
   .then(data => {
@@ -428,10 +584,12 @@ function pollStatus(jobId) {
   }, 1500);
 }
 
-function showProgress() {
+function showProgress(start, end) {
   document.getElementById('progressBox').style.display = 'block';
   document.getElementById('progressBar').style.width = '10%';
-  document.getElementById('statusText').textContent = 'Demarrage...';
+  let label = 'Demarrage...';
+  if (start || end) label = `Extraction ${start||'debut'} → ${end||'fin'}...`;
+  document.getElementById('statusText').textContent = label;
   document.getElementById('pct').textContent = '10%';
 }
 
@@ -486,10 +644,77 @@ def index():
     return render_template_string(HTML)
 
 
+@app.route("/manifest.json")
+def manifest():
+    from flask import Response
+    data = {
+        "name": "YouTube MP3",
+        "short_name": "YT→MP3",
+        "description": "Convertit des liens YouTube en MP3",
+        "start_url": "/",
+        "display": "standalone",
+        "background_color": "#0f0c29",
+        "theme_color": "#0f0c29",
+        "orientation": "portrait",
+        "icons": [
+            {"src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+            {"src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
+        ]
+    }
+    import json
+    return Response(json.dumps(data), mimetype="application/json")
+
+
+@app.route("/icon-<size>.png")
+def icon(size):
+    """Génère une icône PNG simple via SVG→PNG avec pillow ou retourne un SVG encodé."""
+    from flask import Response
+    svg = f"""<svg xmlns='http://www.w3.org/2000/svg' width='{size}' height='{size}' viewBox='0 0 100 100'>
+  <rect width='100' height='100' rx='20' fill='#302b63'/>
+  <text x='50' y='68' font-size='55' text-anchor='middle' fill='white'>&#127925;</text>
+</svg>"""
+    # Essayer de convertir en PNG avec cairosvg ou pillow
+    try:
+        import cairosvg
+        png = cairosvg.svg2png(bytestring=svg.encode(), output_width=int(size), output_height=int(size))
+        return Response(png, mimetype="image/png")
+    except Exception:
+        # Fallback : retourner le SVG
+        return Response(svg, mimetype="image/svg+xml")
+
+
+@app.route("/sw.js")
+def service_worker():
+    from flask import Response
+    sw = """
+const CACHE = 'yt-mp3-v1';
+const ASSETS = ['/'];
+self.addEventListener('install', e => {
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
+  self.skipWaiting();
+});
+self.addEventListener('activate', e => {
+  e.waitUntil(caches.keys().then(keys =>
+    Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
+  ));
+  self.clients.claim();
+});
+self.addEventListener('fetch', e => {
+  if (e.request.method !== 'GET') return;
+  e.respondWith(
+    fetch(e.request).catch(() => caches.match(e.request))
+  );
+});
+"""
+    return Response(sw, mimetype="application/javascript")
+
+
 @app.route("/api/convert", methods=["POST"])
 def convert():
     data = request.get_json()
-    url = (data or {}).get("url", "").strip()
+    url        = (data or {}).get("url", "").strip()
+    start_time = (data or {}).get("start", "").strip() or None
+    end_time   = (data or {}).get("end",   "").strip() or None
 
     if not url:
         return jsonify({"error": "URL manquante"}), 400
@@ -499,7 +724,7 @@ def convert():
     job_id = str(uuid.uuid4())[:8]
     jobs[job_id] = {"status": "pending", "filepath": None, "filename": None, "error": None}
 
-    t = threading.Thread(target=download_job, args=(job_id, url), daemon=True)
+    t = threading.Thread(target=download_job, args=(job_id, url, start_time, end_time), daemon=True)
     t.start()
 
     return jsonify({"job_id": job_id})
