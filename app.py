@@ -55,7 +55,10 @@ def time_to_seconds(t):
 
 def download_job(job_id, url, start_time=None, end_time=None):
     jobs[job_id]["status"] = "downloading"
-    output_path = DOWNLOAD_FOLDER / f"{job_id}.%(ext)s"
+    # Dossier par job pour eviter les conflits de noms
+    output_dir = DOWNLOAD_FOLDER / job_id
+    output_dir.mkdir(exist_ok=True)
+    output_path = output_dir / "%(title)s.%(ext)s"
     ffmpeg_path = get_ffmpeg_path()
     node_path = get_node_path()
 
@@ -93,17 +96,19 @@ def download_job(job_id, url, start_time=None, end_time=None):
             jobs[job_id]["error"] = result.stderr[-500:] if result.stderr else "Erreur inconnue"
             return
 
-        mp3_files = list(DOWNLOAD_FOLDER.glob(f"{job_id}.mp3"))
+        # Chercher le MP3 dans le dossier du job
+        mp3_files = list(output_dir.glob("*.mp3"))
         if not mp3_files:
-            files = list(DOWNLOAD_FOLDER.glob(f"{job_id}.*"))
+            files = list(output_dir.glob("*.*"))
             if not files:
                 jobs[job_id]["status"] = "error"
                 jobs[job_id]["error"] = "Fichier MP3 introuvable apres conversion"
                 return
             mp3_files = files
 
-        jobs[job_id]["filepath"] = str(mp3_files[0])
-        jobs[job_id]["filename"] = mp3_files[0].name
+        mp3_file = mp3_files[0]
+        jobs[job_id]["filepath"] = str(mp3_file)
+        jobs[job_id]["filename"] = mp3_file.name  # Ex: "Rick Astley - Never Gonna Give You Up.mp3"
         jobs[job_id]["status"] = "done"
 
     except subprocess.TimeoutExpired:
