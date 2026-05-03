@@ -91,33 +91,38 @@ HTML = """<!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="theme-color" content="#0f0c29"/>
 <title>YouTube → MP3</title>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   body {
-    font-family: 'Segoe UI', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
     min-height: 100vh;
+    min-height: -webkit-fill-available;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 20px;
+    padding: 16px;
   }
   .card {
     background: rgba(255,255,255,0.05);
     backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     border: 1px solid rgba(255,255,255,0.1);
     border-radius: 24px;
-    padding: 48px 40px;
+    padding: 36px 24px;
     width: 100%;
     max-width: 560px;
     box-shadow: 0 32px 64px rgba(0,0,0,0.4);
   }
-  .logo { font-size: 48px; margin-bottom: 8px; text-align: center; }
+  .logo { font-size: 52px; margin-bottom: 8px; text-align: center; }
   h1 {
     color: #fff;
-    font-size: 1.8rem;
+    font-size: 1.6rem;
     text-align: center;
     margin-bottom: 6px;
     font-weight: 700;
@@ -125,41 +130,73 @@ HTML = """<!DOCTYPE html>
   .subtitle {
     color: rgba(255,255,255,0.5);
     text-align: center;
-    font-size: 0.9rem;
-    margin-bottom: 36px;
+    font-size: 0.88rem;
+    margin-bottom: 28px;
+    line-height: 1.4;
   }
+
+  /* Sur mobile : input + bouton en colonne */
   .input-group {
     display: flex;
+    flex-direction: column;
     gap: 10px;
-    margin-bottom: 24px;
+    margin-bottom: 20px;
   }
+  @media (min-width: 480px) {
+    .input-group { flex-direction: row; }
+  }
+
   input[type=text] {
     flex: 1;
-    padding: 14px 18px;
-    border-radius: 12px;
+    padding: 16px 18px;
+    border-radius: 14px;
     border: 1px solid rgba(255,255,255,0.15);
     background: rgba(255,255,255,0.08);
     color: #fff;
-    font-size: 0.95rem;
+    font-size: 16px; /* 16px minimum pour éviter le zoom auto iOS */
     outline: none;
     transition: border 0.2s;
+    -webkit-appearance: none;
   }
   input[type=text]::placeholder { color: rgba(255,255,255,0.35); }
   input[type=text]:focus { border-color: #ff4e6a; }
+
   button.btn-convert {
-    padding: 14px 22px;
+    width: 100%;
+    padding: 16px 22px;
     background: linear-gradient(135deg, #ff4e6a, #ff6b35);
     border: none;
-    border-radius: 12px;
+    border-radius: 14px;
     color: #fff;
-    font-size: 0.95rem;
-    font-weight: 600;
+    font-size: 1rem;
+    font-weight: 700;
     cursor: pointer;
     transition: opacity 0.2s, transform 0.1s;
-    white-space: nowrap;
+    -webkit-appearance: none;
+    touch-action: manipulation;
+    min-height: 52px;
   }
-  button.btn-convert:hover { opacity: 0.9; transform: translateY(-1px); }
-  button.btn-convert:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  @media (min-width: 480px) {
+    button.btn-convert { width: auto; }
+  }
+  button.btn-convert:active { opacity: 0.8; transform: scale(0.98); }
+  button.btn-convert:disabled { opacity: 0.5; }
+
+  /* Bouton coller depuis presse-papier (mobile) */
+  .btn-paste {
+    width: 100%;
+    padding: 12px;
+    background: rgba(255,255,255,0.07);
+    border: 1px dashed rgba(255,255,255,0.2);
+    border-radius: 12px;
+    color: rgba(255,255,255,0.6);
+    font-size: 0.88rem;
+    cursor: pointer;
+    margin-bottom: 20px;
+    touch-action: manipulation;
+    -webkit-appearance: none;
+  }
+  .btn-paste:active { background: rgba(255,255,255,0.12); }
 
   /* Progress */
   .progress-box {
@@ -167,7 +204,7 @@ HTML = """<!DOCTYPE html>
     background: rgba(255,255,255,0.05);
     border-radius: 14px;
     padding: 20px;
-    margin-bottom: 20px;
+    margin-bottom: 16px;
     border: 1px solid rgba(255,255,255,0.1);
   }
   .progress-label {
@@ -180,7 +217,7 @@ HTML = """<!DOCTYPE html>
   .progress-bar-wrap {
     background: rgba(255,255,255,0.1);
     border-radius: 8px;
-    height: 8px;
+    height: 10px;
     overflow: hidden;
   }
   .progress-bar {
@@ -197,33 +234,50 @@ HTML = """<!DOCTYPE html>
   .result-box {
     display: none;
     text-align: center;
-    padding: 24px;
+    padding: 24px 16px;
     background: rgba(0,255,120,0.07);
     border: 1px solid rgba(0,255,120,0.2);
     border-radius: 14px;
-    margin-bottom: 20px;
+    margin-bottom: 16px;
   }
-  .result-box .check { font-size: 40px; margin-bottom: 8px; }
+  .result-box .check { font-size: 44px; margin-bottom: 8px; }
   .result-box p { color: rgba(255,255,255,0.7); font-size: 0.85rem; margin-bottom: 16px; }
   .result-box .filename {
     color: #fff;
     font-weight: 600;
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     margin-bottom: 16px;
     word-break: break-all;
   }
   .btn-download {
-    display: inline-block;
-    padding: 12px 28px;
+    display: block;
+    width: 100%;
+    padding: 16px 28px;
     background: linear-gradient(135deg, #00c853, #00e676);
-    border-radius: 10px;
+    border-radius: 14px;
     color: #fff;
     font-weight: 700;
     text-decoration: none;
-    font-size: 0.95rem;
-    transition: opacity 0.2s;
+    font-size: 1rem;
+    touch-action: manipulation;
+    min-height: 52px;
+    line-height: 1.2;
   }
-  .btn-download:hover { opacity: 0.85; }
+  .btn-download:active { opacity: 0.85; }
+
+  /* Note iPhone */
+  .iphone-note {
+    display: none;
+    margin-top: 10px;
+    padding: 10px 14px;
+    background: rgba(255,200,0,0.1);
+    border: 1px solid rgba(255,200,0,0.3);
+    border-radius: 10px;
+    color: rgba(255,220,100,0.9);
+    font-size: 0.78rem;
+    line-height: 1.5;
+    text-align: left;
+  }
 
   /* Error */
   .error-box {
@@ -234,14 +288,15 @@ HTML = """<!DOCTYPE html>
     padding: 16px 20px;
     color: #ff8080;
     font-size: 0.85rem;
-    margin-bottom: 20px;
+    margin-bottom: 16px;
   }
 
   .footer {
     text-align: center;
-    color: rgba(255,255,255,0.25);
-    font-size: 0.75rem;
-    margin-top: 28px;
+    color: rgba(255,255,255,0.2);
+    font-size: 0.72rem;
+    margin-top: 24px;
+    line-height: 1.6;
   }
 </style>
 </head>
@@ -252,9 +307,11 @@ HTML = """<!DOCTYPE html>
   <p class="subtitle">Colle un lien YouTube et télécharge en MP3</p>
 
   <div class="input-group">
-    <input type="text" id="urlInput" placeholder="https://youtube.com/watch?v=..." />
+    <input type="text" id="urlInput" placeholder="https://youtube.com/watch?v=..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
     <button class="btn-convert" id="convertBtn" onclick="startConvert()">Convertir</button>
   </div>
+
+  <button class="btn-paste" onclick="pasteFromClipboard()">📋 Coller le lien depuis le presse-papier</button>
 
   <div class="progress-box" id="progressBox">
     <div class="progress-label">
@@ -273,17 +330,47 @@ HTML = """<!DOCTYPE html>
     <div class="filename" id="filenameLabel"></div>
     <p>Ton fichier MP3 est prêt !</p>
     <a id="downloadLink" class="btn-download" href="#">⬇️ Télécharger MP3</a>
+    <div class="iphone-note" id="iphoneNote">
+      💡 <strong>Sur iPhone :</strong> appuie sur le bouton, puis choisis
+      "Télécharger le fichier lié" pour le sauvegarder dans Fichiers.
+    </div>
   </div>
 
-  <div class="footer">Usage personnel uniquement · qualité 192kbps</div>
+  <div class="footer">Usage personnel uniquement · qualité 192kbps<br>Fonctionne sur iPhone, Android et PC</div>
 </div>
 
 <script>
 let pollInterval = null;
 
+// Détecter iPhone/iOS
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+if (isIOS) {
+  document.getElementById('iphoneNote') && (document.getElementById('iphoneNote').style.display = 'block');
+}
+
+async function pasteFromClipboard() {
+  try {
+    const text = await navigator.clipboard.readText();
+    if (text) {
+      document.getElementById('urlInput').value = text;
+      if (text.includes('youtube.com') || text.includes('youtu.be')) {
+        startConvert();
+      }
+    }
+  } catch(e) {
+    // Fallback : focus sur l'input
+    document.getElementById('urlInput').focus();
+    document.getElementById('urlInput').select();
+  }
+}
+
 function startConvert() {
   const url = document.getElementById('urlInput').value.trim();
   if (!url) { showError("Colle un lien YouTube d'abord !"); return; }
+  if (!url.includes('youtube.com') && !url.includes('youtu.be')) {
+    showError("Ce lien ne semble pas être un lien YouTube valide.");
+    return;
+  }
 
   hideAll();
   setLoading(true);
@@ -299,12 +386,12 @@ function startConvert() {
     if (data.error) { showError(data.error); setLoading(false); return; }
     pollStatus(data.job_id);
   })
-  .catch(() => { showError("Erreur réseau"); setLoading(false); });
+  .catch(() => { showError("Erreur réseau, réessaie dans quelques secondes."); setLoading(false); });
 }
 
 function pollStatus(jobId) {
   let dots = 0;
-  const statuses = ["Téléchargement", "Conversion en cours", "Finalisation"];
+  const statuses = ["Telechargement", "Conversion en cours", "Finalisation"];
   let si = 0;
   let barW = 10;
 
@@ -337,14 +424,14 @@ function pollStatus(jobId) {
         setLoading(false);
       }
     })
-    .catch(() => { /* ignore réseau temporaire */ });
+    .catch(() => { /* ignore reseau temporaire */ });
   }, 1500);
 }
 
 function showProgress() {
   document.getElementById('progressBox').style.display = 'block';
   document.getElementById('progressBar').style.width = '10%';
-  document.getElementById('statusText').textContent = 'Démarrage...';
+  document.getElementById('statusText').textContent = 'Demarrage...';
   document.getElementById('pct').textContent = '10%';
 }
 
@@ -353,13 +440,18 @@ function showResult(jobId, filename) {
   const rb = document.getElementById('resultBox');
   rb.style.display = 'block';
   document.getElementById('filenameLabel').textContent = filename;
-  document.getElementById('downloadLink').href = `/api/download/${jobId}`;
+  const link = document.getElementById('downloadLink');
+  link.href = `/api/download/${jobId}`;
+  // Sur iOS, afficher la note
+  if (isIOS) {
+    document.getElementById('iphoneNote').style.display = 'block';
+  }
 }
 
 function showError(msg) {
   const eb = document.getElementById('errorBox');
   eb.style.display = 'block';
-  eb.textContent = '❌ ' + msg;
+  eb.textContent = 'Erreur : ' + msg;
   document.getElementById('progressBox').style.display = 'none';
 }
 
@@ -372,8 +464,13 @@ function hideAll() {
 function setLoading(loading) {
   const btn = document.getElementById('convertBtn');
   btn.disabled = loading;
-  btn.textContent = loading ? '⏳ ...' : 'Convertir';
+  btn.textContent = loading ? 'Conversion...' : 'Convertir';
 }
+
+// Soumettre avec Entree
+document.getElementById('urlInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') startConvert();
+});
 
 document.getElementById('urlInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') startConvert();
