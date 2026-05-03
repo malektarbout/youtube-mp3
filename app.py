@@ -489,7 +489,7 @@ if (isIOS) {
   if (!installed) {
     const btn = document.getElementById('installBtn');
     btn.style.display = 'block';
-    btn.textContent = '📲 Installer : appuie sur      puis "Sur l\'ecran d\'accueil"';
+    btn.textContent = `📲 Installer : appuie sur ⬆️ puis "Sur l'ecran d'accueil"`;
     btn.onclick = null;
   }
 }
