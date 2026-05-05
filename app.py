@@ -9,22 +9,29 @@ from flask import Flask, request, jsonify, send_file, render_template_string, ab
 
 app = Flask(__name__)
 
-DOWNLOAD_FOLDER = Path("downloads")
+BASE_DIR = Path(__file__).parent
+DOWNLOAD_FOLDER = BASE_DIR / "downloads"
 DOWNLOAD_FOLDER.mkdir(exist_ok=True)
+COOKIES_FILE = BASE_DIR / "youtube_cookies.txt"
 
-COOKIES_FILE = Path("youtube_cookies.txt")
+print(f"[INFO] Dossier de travail : {BASE_DIR}")
+print(f"[INFO] Dossier downloads : {DOWNLOAD_FOLDER}")
 
 def setup_cookies():
     """Decode les cookies depuis la variable d'environnement et les sauvegarde."""
-    cookies_b64 = os.environ.get("YOUTUBE_COOKIES_B64", "")
-    if cookies_b64:
-        import base64
-        try:
+    try:
+        cookies_b64 = os.environ.get("YOUTUBE_COOKIES_B64", "").strip()
+        if cookies_b64:
+            import base64
+            # Corriger le padding base64 si des = ont ete perdus au copier-coller
+            cookies_b64 += '=' * (4 - len(cookies_b64) % 4)
             cookies_data = base64.b64decode(cookies_b64).decode("utf-8")
             COOKIES_FILE.write_text(cookies_data, encoding="utf-8")
-            print("[OK] Cookies YouTube charges depuis l'environnement.")
-        except Exception as e:
-            print(f"[WARN] Impossible de charger les cookies: {e}")
+            print("[OK] Cookies YouTube charges avec succes.")
+        else:
+            print("[INFO] Pas de cookies YouTube configures.")
+    except Exception as e:
+        print(f"[WARN] Erreur cookies : {e}")
 
 setup_cookies()
 
