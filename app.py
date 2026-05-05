@@ -9,13 +9,11 @@ from flask import Flask, request, jsonify, send_file, render_template_string, ab
 
 app = Flask(__name__)
 
-BASE_DIR = Path(__file__).parent
-DOWNLOAD_FOLDER = BASE_DIR / "downloads"
+DOWNLOAD_FOLDER = Path("/tmp/downloads")
 DOWNLOAD_FOLDER.mkdir(exist_ok=True)
-COOKIES_FILE = BASE_DIR / "youtube_cookies.txt"
+COOKIES_FILE = Path("/tmp/youtube_cookies.txt")
 
-print(f"[INFO] Dossier de travail : {BASE_DIR}")
-print(f"[INFO] Dossier downloads : {DOWNLOAD_FOLDER}")
+print("[INFO] Dossier downloads : /tmp/downloads")
 
 def setup_cookies():
     """Decode les cookies depuis la variable d'environnement et les sauvegarde."""
