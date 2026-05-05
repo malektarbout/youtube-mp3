@@ -12,6 +12,22 @@ app = Flask(__name__)
 DOWNLOAD_FOLDER = Path("downloads")
 DOWNLOAD_FOLDER.mkdir(exist_ok=True)
 
+COOKIES_FILE = Path("youtube_cookies.txt")
+
+def setup_cookies():
+    """Decode les cookies depuis la variable d'environnement et les sauvegarde."""
+    cookies_b64 = os.environ.get("YOUTUBE_COOKIES_B64", "")
+    if cookies_b64:
+        import base64
+        try:
+            cookies_data = base64.b64decode(cookies_b64).decode("utf-8")
+            COOKIES_FILE.write_text(cookies_data, encoding="utf-8")
+            print("[OK] Cookies YouTube charges depuis l'environnement.")
+        except Exception as e:
+            print(f"[WARN] Impossible de charger les cookies: {e}")
+
+setup_cookies()
+
 # Stocke les jobs en mémoire: {job_id: {status, filename, error, progress}}
 jobs = {}
 
@@ -74,6 +90,7 @@ def download_job(job_id, url, start_time=None, end_time=None):
         "--user-agent", "Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.91 Mobile Safari/537.36",
         "--add-header", "Accept-Language:fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7",
         "--no-check-certificates",
+        *(["--cookies", str(COOKIES_FILE)] if COOKIES_FILE.exists() else []),
         "--output", str(output_path),
         "--no-playlist",
         "--print", "after_move:filepath",
