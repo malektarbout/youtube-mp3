@@ -23,8 +23,11 @@ def setup_cookies():
         cookies_b64 = os.environ.get("YOUTUBE_COOKIES_B64", "").strip()
         if cookies_b64:
             import base64
-            # Corriger le padding base64 si des = ont ete perdus au copier-coller
-            cookies_b64 += '=' * (4 - len(cookies_b64) % 4)
+            # Supprimer espaces/sauts de ligne et corriger le padding
+            cookies_b64 = cookies_b64.replace('\n','').replace('\r','').replace(' ','')
+            missing = len(cookies_b64) % 4
+            if missing:
+                cookies_b64 += '=' * (4 - missing)
             cookies_data = base64.b64decode(cookies_b64).decode("utf-8")
             COOKIES_FILE.write_text(cookies_data, encoding="utf-8")
             print("[OK] Cookies YouTube charges avec succes.")
