@@ -96,7 +96,7 @@ def download_job(job_id, url, start_time=None, end_time=None):
         "--js-runtimes", f"node:{node_path}",
         "--no-check-certificates",
         "--add-header", "Accept-Language:fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7",
-        *(["--cookies", str(COOKIES_FILE), "--extractor-args", "youtube:player_client=web,mweb"] if COOKIES_FILE.exists() else ["--extractor-args", "youtube:player_client=android,tv_embedded", "--user-agent", "Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36"]),
+        *(["--cookies", str(COOKIES_FILE), "--extractor-args", "youtube:player_client=web"] if COOKIES_FILE.exists() else ["--extractor-args", "youtube:player_client=android,tv_embedded", "--user-agent", "Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36"]),
         "--output", str(output_path),
         "--no-playlist",
         "--print", "after_move:filepath",
