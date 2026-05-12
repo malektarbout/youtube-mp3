@@ -9,11 +9,16 @@ from flask import Flask, request, jsonify, send_file, render_template_string, ab
 
 app = Flask(__name__)
 
-DOWNLOAD_FOLDER = Path("/tmp/downloads")
-DOWNLOAD_FOLDER.mkdir(exist_ok=True)
-COOKIES_FILE = Path("/tmp/youtube_cookies.txt")
+import platform
+if platform.system() == "Windows":
+    DOWNLOAD_FOLDER = Path(__file__).parent / "downloads"
+    COOKIES_FILE    = Path(__file__).parent / "youtube_cookies.txt"
+else:
+    DOWNLOAD_FOLDER = Path("/tmp/downloads")
+    COOKIES_FILE    = Path("/tmp/youtube_cookies.txt")
 
-print("[INFO] Dossier downloads : /tmp/downloads")
+DOWNLOAD_FOLDER.mkdir(exist_ok=True)
+print(f"[INFO] Dossier downloads : {DOWNLOAD_FOLDER}")
 
 def setup_cookies():
     """Decode les cookies depuis la variable d'environnement et les sauvegarde."""
@@ -739,6 +744,58 @@ self.addEventListener('fetch', e => {
 });
 """
     return Response(sw, mimetype="application/javascript")
+
+
+@app.route("/debug")
+def debug():
+    import base64
+    from flask import Response
+    import json
+
+    cookies_b64_raw = os.environ.get("YOUTUBE_COOKIES_B64", "")
+    cookies_b64 = cookies_b64_raw.replace('\n','').replace('\r','').replace(' ','')
+    missing = len(cookies_b64) % 4
+    if missing:
+        cookies_b64 += '=' * (4 - missing)
+
+    decode_ok = False
+    decode_error = ""
+    decoded_len = 0
+    decoded_preview = ""
+    try:
+        decoded = base64.b64decode(cookies_b64).decode("utf-8")
+        decode_ok = True
+        decoded_len = len(decoded)
+        decoded_preview = decoded[:80]
+    except Exception as e:
+        decode_error = str(e)
+
+    # Retenter l'ecriture du fichier cookies
+    write_ok = False
+    write_error = ""
+    if decode_ok:
+        try:
+            COOKIES_FILE.write_text(base64.b64decode(cookies_b64).decode("utf-8"), encoding="utf-8")
+            write_ok = True
+        except Exception as e:
+            write_error = str(e)
+
+    info = {
+        "cookies_b64_raw_length": len(cookies_b64_raw),
+        "cookies_b64_clean_length": len(cookies_b64),
+        "cookies_b64_preview": cookies_b64[:30] + "..." if cookies_b64 else "EMPTY",
+        "decode_ok": decode_ok,
+        "decode_error": decode_error,
+        "decoded_length": decoded_len,
+        "decoded_preview": decoded_preview,
+        "write_ok": write_ok,
+        "write_error": write_error,
+        "cookies_file_path": str(COOKIES_FILE),
+        "cookies_file_exists": COOKIES_FILE.exists(),
+        "cookies_file_size": COOKIES_FILE.stat().st_size if COOKIES_FILE.exists() else 0,
+        "tmp_writable": os.access("/tmp", os.W_OK),
+    }
+    return Response(json.dumps(info, indent=2), mimetype="application/json")
 
 
 @app.route("/api/convert", methods=["POST"])
